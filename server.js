@@ -8,9 +8,8 @@ const https = require("https");
 // In Render dashboard → Your Service → Environment:
 // BOT_TOKEN = your bot token from BotFather
 // CHAT_ID  = your Telegram user chat id
-const BOT_TOKEN = process.env.8478993597:AAET60NQeyO3ZbWoG-_qWd8iB1Jc89foIO8;
-const CHAT_ID = process.env.6273207229;
-
+const BOT_TOKEN = "8478993597:AAET60NQeyO3ZbWoG-_qWd8iB1Jc89foIO8";
+const CHAT_ID = "6273207229";
 if (!BOT_TOKEN || !CHAT_ID) {
   console.log("⚠️ BOT_TOKEN or CHAT_ID is missing. Set them in Render env vars.");
 }
