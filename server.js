@@ -38,3 +38,6 @@ Telegram: @${username}
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log("Server running"));
+app.get("/order", (req, res) => {
+  res.send("Order endpoint is working, use POST to send data.");
+});
