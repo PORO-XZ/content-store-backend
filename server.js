@@ -1,146 +1,80 @@
 // server.js
-// Pure Node.js backend: no external modules needed
 
-const http = require("http");
-const https = require("https");
+const express = require("express");
+const cors = require("cors");
+const multer = require("multer");
+const axios = require("axios");
+require("dotenv").config();
 
-// ✅ Set these in Render environment variables
-// In Render dashboard → Your Service → Environment:
-// BOT_TOKEN = your bot token from BotFather
-// CHAT_ID  = your Telegram user chat id
-const BOT_TOKEN = "8478993597:AAEcGw4Ocbq2k5fBAEjAnnJB_VEHJK-d39k";
-const CHAT_ID = "6273207229";
-if (!BOT_TOKEN || !CHAT_ID) {
-  console.log("⚠️ BOT_TOKEN or CHAT_ID is missing. Set them in Render env vars.");
-}
+const app = express();
 
-// Helper: send JSON response with CORS
-function sendJson(res, statusCode, data) {
-  const body = JSON.stringify(data);
-  res.writeHead(statusCode, {
-    "Content-Type": "application/json",
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type",
+app.use(cors());
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+const upload = multer({ dest: "uploads/" });
+
+// 🔐 Telegram config from environment (Render → Environment)
+const BOT_TOKEN = process.env.8478993597:AAEEKsR4_QQta20mBHJSO8E3wQuSxQM8MbQ;
+const CHAT_ID = process.env.6273207229;
+
+// ====== DEBUG ROUTES ======
+
+// Health check
+app.get("/", (req, res) => {
+  res.send("Backend is LIVE 🚀");
+});
+
+// So you don’t see "Cannot GET /order"
+app.get("/order", (req, res) => {
+  res.send("Order endpoint is working, use POST to send data.");
+});
+
+// Check if env vars exist
+app.get("/debug", (req, res) => {
+  res.json({
+    hasToken: !!BOT_TOKEN,
+    hasChatId: !!CHAT_ID,
   });
-  res.end(body);
-}
+});
 
-// Helper: send plain text
-function sendText(res, statusCode, text) {
-  res.writeHead(statusCode, {
-    "Content-Type": "text/plain",
-    "Access-Control-Allow-Origin": "*",
-  });
-  res.end(text);
-}
-
-// Helper: send message to Telegram
-function sendTelegramMessage(text, callback) {
+// Test Telegram directly from backend
+app.get("/test-telegram", async (req, res) => {
   if (!BOT_TOKEN || !CHAT_ID) {
-    callback(new Error("BOT_TOKEN or CHAT_ID not set"));
-    return;
+    return res
+      .status(500)
+      .send("Missing BOT_TOKEN or CHAT_ID in environment variables.");
   }
 
-  const payload = JSON.stringify({
-    chat_id: CHAT_ID,
-    text: text,
-  });
-
-  const options = {
-    hostname: "api.telegram.org",
-    path: `/bot${BOT_TOKEN}/sendMessage`,
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Content-Length": Buffer.byteLength(payload),
-    },
-  };
-
-  const req = https.request(options, (tgRes) => {
-    let data = "";
-    tgRes.on("data", (chunk) => (data += chunk));
-    tgRes.on("end", () => {
-      try {
-        const parsed = JSON.parse(data);
-        if (!parsed.ok) {
-          callback(new Error(parsed.description || "Telegram API error"));
-        } else {
-          callback(null, parsed);
-        }
-      } catch (e) {
-        callback(e);
-      }
-    });
-  });
-
-  req.on("error", (e) => {
-    callback(e);
-  });
-
-  req.write(payload);
-  req.end();
-}
-
-// HTTP server
-const server = http.createServer((req, res) => {
-  const urlPath = req.url.split("?")[0];
-  const method = req.method;
-
-  // CORS preflight
-  if (method === "OPTIONS") {
-    res.writeHead(204, {
-      "Access-Control-Allow-Origin": "*",
-      "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type",
-    });
-    return res.end();
-  }
-
-  // Health check
-  if (urlPath === "/" && method === "GET") {
-    return sendText(res, 200, "Backend is LIVE 🚀 (Telegram ready)");
-  }
-
-  // Check /order in browser
-  if (urlPath === "/order" && method === "GET") {
-    return sendText(res, 200, "Order endpoint working. Send POST /order with JSON.");
-  }
-
-  // MAIN ROUTE: POST /order from your website
-  if (urlPath === "/order" && method === "POST") {
-    let body = "";
-
-    req.on("data", (chunk) => {
-      body += chunk;
-      if (body.length > 1e6) {
-        req.socket.destroy();
-      }
+  try {
+    await axios.post(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+      chat_id: CHAT_ID,
+      text: "Test message from backend ✅",
     });
 
-    req.on("end", () => {
-      let data;
-      try {
-        data = JSON.parse(body || "{}");
-      } catch (e) {
-        return sendJson(res, 400, {
-          success: false,
-          message: "Invalid JSON",
-        });
-      }
+    res.send("Test message sent to Telegram ✅");
+  } catch (err) {
+    console.error("Telegram error:", err.response?.data || err.message);
+    res
+      .status(500)
+      .send("Failed to send Telegram message. Check logs on Render.");
+  }
+});
 
-      const username = data.username;
-      const item = data.item;
-      const price = data.price;
+// ====== MAIN ORDER ROUTE ======
 
-      if (!username || !item || !price) {
-        return sendJson(res, 400, {
-          success: false,
-          message: "username, item and price are required",
-        });
-      }
+app.post("/order", upload.single("screenshot"), async (req, res) => {
+  try {
+    const { username, item, price } = req.body;
 
-      const message = `
+    if (!username || !item || !price) {
+      return res.status(400).json({
+        success: false,
+        message: "username, item and price are required",
+      });
+    }
+
+    const message = `
 🛒 NEW ORDER
 
 Item: ${item}
@@ -148,32 +82,28 @@ Price: ₹${price}
 Telegram: @${username}
 `;
 
-      sendTelegramMessage(message, (err, tgRes) => {
-        if (err) {
-          console.error("Telegram error:", err.message);
-          return sendJson(res, 500, {
-            success: false,
-            message: "Failed to send order to Telegram",
-            error: err.message,
-          });
-        }
-
-        console.log("Telegram OK:", tgRes);
-        return sendJson(res, 200, {
-          success: true,
-          message: "Order sent to Telegram!",
-        });
-      });
+    await axios.post(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+      chat_id: CHAT_ID,
+      text: message,
     });
 
-    return;
-  }
+    return res.json({
+      success: true,
+      message: "Order sent to Telegram!",
+    });
+  } catch (err) {
+    console.error("Telegram error:", err.response?.data || err.message);
 
-  // Anything else → 404
-  sendText(res, 404, "Not found");
+    return res.status(500).json({
+      success: false,
+      message: "Failed to send order to Telegram",
+      error: err.response?.data || err.message,
+    });
+  }
 });
 
+// ====== START SERVER ======
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => {
+app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
