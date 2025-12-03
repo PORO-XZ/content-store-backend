@@ -12,8 +12,8 @@ app.get("/", (req, res) => {
 const upload = multer({ dest: "uploads/" });
 
 // SET THESE 👇
-const TOKEN = "PUT_YOUR_BOT_TOKEN_HERE";
-const CHAT_ID = "PUT_YOUR_CHAT_ID_HERE";
+const TOKEN = "8478993597";
+const CHAT_ID = "6273207229";
 
 app.post("/order", upload.single("screenshot"), async (req, res) => {
   const { username, item, price } = req.body;
