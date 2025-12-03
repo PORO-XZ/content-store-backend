@@ -1,23 +1,26 @@
 // server.js
-// No external modules. Only built-in Node stuff.
+// Pure Node.js backend: no external modules needed
 
 const http = require("http");
 const https = require("https");
 
-// Read from environment (set these on Render)
-const BOT_TOKEN = process.env.8478993597:AAET60NQeyO3ZbWoG-_qWd8iB1Jc89foIO88478993597:AAET60NQeyO3ZbWoG-_qWd8iB1Jc89foIO8;
+// ✅ Set these in Render environment variables
+// In Render dashboard → Your Service → Environment:
+// BOT_TOKEN = your bot token from BotFather
+// CHAT_ID  = your Telegram user chat id
+const BOT_TOKEN = process.env.8478993597:AAET60NQeyO3ZbWoG-_qWd8iB1Jc89foIO8;
 const CHAT_ID = process.env.6273207229;
 
 if (!BOT_TOKEN || !CHAT_ID) {
   console.log("⚠️ BOT_TOKEN or CHAT_ID is missing. Set them in Render env vars.");
 }
 
-// Helper: send response as JSON
+// Helper: send JSON response with CORS
 function sendJson(res, statusCode, data) {
   const body = JSON.stringify(data);
   res.writeHead(statusCode, {
     "Content-Type": "application/json",
-    "Access-Control-Allow-Origin": "*",          // CORS
+    "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
     "Access-Control-Allow-Headers": "Content-Type",
   });
@@ -33,14 +36,14 @@ function sendText(res, statusCode, text) {
   res.end(text);
 }
 
-// Helper: send message to Telegram using https
+// Helper: send message to Telegram
 function sendTelegramMessage(text, callback) {
   if (!BOT_TOKEN || !CHAT_ID) {
     callback(new Error("BOT_TOKEN or CHAT_ID not set"));
     return;
   }
 
-  const postData = JSON.stringify({
+  const payload = JSON.stringify({
     chat_id: CHAT_ID,
     text: text,
   });
@@ -51,14 +54,14 @@ function sendTelegramMessage(text, callback) {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "Content-Length": Buffer.byteLength(postData),
+      "Content-Length": Buffer.byteLength(payload),
     },
   };
 
-  const req = https.request(options, (res) => {
+  const req = https.request(options, (tgRes) => {
     let data = "";
-    res.on("data", (chunk) => (data += chunk));
-    res.on("end", () => {
+    tgRes.on("data", (chunk) => (data += chunk));
+    tgRes.on("end", () => {
       try {
         const parsed = JSON.parse(data);
         if (!parsed.ok) {
@@ -76,14 +79,17 @@ function sendTelegramMessage(text, callback) {
     callback(e);
   });
 
-  req.write(postData);
+  req.write(payload);
   req.end();
 }
 
-// Create HTTP server
+// HTTP server
 const server = http.createServer((req, res) => {
-  // Enable CORS preflight
-  if (req.method === "OPTIONS") {
+  const urlPath = req.url.split("?")[0];
+  const method = req.method;
+
+  // CORS preflight
+  if (method === "OPTIONS") {
     res.writeHead(204, {
       "Access-Control-Allow-Origin": "*",
       "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
@@ -92,23 +98,22 @@ const server = http.createServer((req, res) => {
     return res.end();
   }
 
-  // Root: quick check
-  if (req.url === "/" && req.method === "GET") {
-    return sendText(res, 200, "Backend is LIVE 🚀 (no external modules)");
+  // Health check
+  if (urlPath === "/" && method === "GET") {
+    return sendText(res, 200, "Backend is LIVE 🚀 (Telegram ready)");
   }
 
-  // GET /order just to test in browser
-  if (req.url === "/order" && req.method === "GET") {
-    return sendText(res, 200, "Order endpoint working. Use POST /order with JSON.");
+  // Check /order in browser
+  if (urlPath === "/order" && method === "GET") {
+    return sendText(res, 200, "Order endpoint working. Send POST /order with JSON.");
   }
 
-  // POST /order — main route used by your website
-  if (req.url === "/order" && req.method === "POST") {
+  // MAIN ROUTE: POST /order from your website
+  if (urlPath === "/order" && method === "POST") {
     let body = "";
 
     req.on("data", (chunk) => {
       body += chunk;
-      // safety: limit body size
       if (body.length > 1e6) {
         req.socket.destroy();
       }
@@ -165,11 +170,10 @@ Telegram: @${username}
     return;
   }
 
-  // If nothing matched → 404
+  // Anything else → 404
   sendText(res, 404, "Not found");
 });
 
-// Start server
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
