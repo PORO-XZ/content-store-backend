@@ -12,7 +12,7 @@ app.get("/", (req, res) => {
 const upload = multer({ dest: "uploads/" });
 
 // SET THESE 👇
-const TOKEN = "8478993597:AAHvZTMLrW8t7zjYzmojBFvKOow2DQW2Qi0";
+const TOKEN = "8478993597:AAHQdmbnW5X7VYZLqcuWI1jBEOoSzTWeyys";
 const CHAT_ID = "6273207229";
 
 app.post("/order", upload.single("screenshot"), async (req, res) => {
