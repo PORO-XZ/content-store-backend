@@ -9,7 +9,7 @@ const app = express();
 
 app.use(cors());
 app.use(express.json());
-
+app.use(express.urlencoded({ extended: true }));
 // ✅ Read from environment (Render ENV)
 const BOT_TOKEN = process.env.BOT_TOKEN || "";
 const CHAT_ID = process.env.CHAT_ID || "";
@@ -57,14 +57,17 @@ app.get("/test-telegram", async (req, res) => {
 
 // ✅ Main order route used by your website
 app.post("/order", async (req, res) => {
-  try {
-    const { username, item, price } = req.body;
+  const { username, item, price } = req.body;
 
-    if (!username || !item || !price) {
-      return res.status(400).json({
-        success: false,
-        message: "username, item and price are required",
-      });
+  if (!username || !item || !price) {
+    return res.json({
+      success: false,
+      message: "username, item and price are required"
+    });
+  }
+
+  res.json({ success: true });
+});
     }
 
     const message = `
