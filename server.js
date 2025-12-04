@@ -12,8 +12,8 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // Telegram config from environment
-const 8478993597:AAEEKsR4_QQta20mBHJSO8E3wQuSxQM8MbQ = process.env.BOT_TOKEN;
-const 6273207229 = process.env.CHAT_ID;
+const BOT_TOKEN = process.env.BOT_TOKEN || "";
+const CHAT_ID = process.env.CHAT_ID || "";
 
 if (!BOT_TOKEN || !CHAT_ID) {
   console.warn("⚠️ BOT_TOKEN or CHAT_ID missing in environment!");
