@@ -9,27 +9,22 @@ const app = express();
 
 app.use(cors());
 app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
 
-// Telegram config from environment
+// ✅ Read from environment (Render ENV)
 const BOT_TOKEN = process.env.BOT_TOKEN || "";
 const CHAT_ID = process.env.CHAT_ID || "";
 
-if (!BOT_TOKEN || !CHAT_ID) {
-  console.warn("⚠️ BOT_TOKEN or CHAT_ID missing in environment!");
-}
-
-// Health check
+// ✅ Health check route
 app.get("/", (req, res) => {
   res.send("Backend is LIVE 🚀");
 });
 
-// Just to not show 'Cannot GET /order'
+// ✅ Just so /order GET doesn’t show Cannot GET
 app.get("/order", (req, res) => {
   res.send("Order endpoint is working, use POST to send data.");
 });
 
-// Debug env
+// ✅ Debug env route
 app.get("/debug", (req, res) => {
   res.json({
     hasToken: !!BOT_TOKEN,
@@ -37,7 +32,7 @@ app.get("/debug", (req, res) => {
   });
 });
 
-// Test Telegram from backend
+// ✅ Test Telegram route
 app.get("/test-telegram", async (req, res) => {
   if (!BOT_TOKEN || !CHAT_ID) {
     return res
@@ -60,7 +55,7 @@ app.get("/test-telegram", async (req, res) => {
   }
 });
 
-// MAIN ORDER ROUTE (no multer now)
+// ✅ Main order route used by your website
 app.post("/order", async (req, res) => {
   try {
     const { username, item, price } = req.body;
@@ -100,6 +95,7 @@ Telegram: @${username}
   }
 });
 
+// ✅ Start server
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
