@@ -10,64 +10,58 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-// ✅ Read from environment (Render ENV)
+
+// ✅ Telegram ENV
 const BOT_TOKEN = process.env.BOT_TOKEN || "";
 const CHAT_ID = process.env.CHAT_ID || "";
 
-// ✅ Health check route
+// ✅ Health check
 app.get("/", (req, res) => {
   res.send("Backend is LIVE 🚀");
 });
 
-// ✅ Just so /order GET doesn’t show Cannot GET
+// ✅ Prevent Cannot GET
 app.get("/order", (req, res) => {
   res.send("Order endpoint is working, use POST to send data.");
 });
 
-// ✅ Debug env route
+// ✅ Debug ENV
 app.get("/debug", (req, res) => {
   res.json({
     hasToken: !!BOT_TOKEN,
-    hasChatId: !!CHAT_ID,
+    hasChatId: !!CHAT_ID
   });
 });
 
-// ✅ Test Telegram route
+// ✅ Test Telegram
 app.get("/test-telegram", async (req, res) => {
   if (!BOT_TOKEN || !CHAT_ID) {
-    return res
-      .status(500)
-      .send("Missing BOT_TOKEN or CHAT_ID in environment variables.");
+    return res.status(500).send("Missing BOT_TOKEN or CHAT_ID");
   }
 
   try {
     await axios.post(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
       chat_id: CHAT_ID,
-      text: "Test message from backend ✅",
+      text: "Test message from backend ✅"
     });
 
-    res.send("Test message sent to Telegram ✅");
+    res.send("✅ Telegram test message sent!");
   } catch (err) {
-    console.error("Telegram error:", err.response?.data || err.message);
-    res
-      .status(500)
-      .send("Failed to send Telegram message. Check logs on Render.");
+    console.error(err.response?.data || err.message);
+    res.status(500).send("❌ Failed to send Telegram message");
   }
 });
 
-// ✅ Main order route used by your website
+// ✅ ORDER ROUTE (FIXED)
 app.post("/order", async (req, res) => {
-  const { username, item, price } = req.body;
+  try {
+    const { username, item, price } = req.body;
 
-  if (!username || !item || !price) {
-    return res.json({
-      success: false,
-      message: "username, item and price are required"
-    });
-  }
-
-  res.json({ success: true });
-});
+    if (!username || !item || !price) {
+      return res.status(400).json({
+        success: false,
+        message: "username, item and price are required"
+      });
     }
 
     const message = `
@@ -80,20 +74,21 @@ Telegram: @${username}
 
     await axios.post(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
       chat_id: CHAT_ID,
-      text: message,
+      text: message
     });
 
-    return res.json({
+    res.json({
       success: true,
-      message: "Order sent to Telegram!",
+      message: "Order sent to Telegram ✅"
     });
-  } catch (err) {
-    console.error("Telegram error:", err.response?.data || err.message);
 
-    return res.status(500).json({
+  } catch (err) {
+    console.error(err.response?.data || err.message);
+
+    res.status(500).json({
       success: false,
-      message: "Failed to send order to Telegram",
-      error: err.response?.data || err.message,
+      message: "Telegram failed",
+      error: err.response?.data || err.message
     });
   }
 });
@@ -101,5 +96,5 @@ Telegram: @${username}
 // ✅ Start server
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+  console.log("Server running on port", PORT);
 });
