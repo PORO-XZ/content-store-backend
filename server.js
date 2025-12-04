@@ -3,6 +3,8 @@
 const express = require("express");
 const cors = require("cors");
 const axios = require("axios");
+const multer = require("multer");
+const FormData = require("form-data");
 require("dotenv").config();
 
 const app = express();
@@ -10,6 +12,14 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// ⚙️ Multer setup (store file in memory)
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 5 * 1024 * 1024 // 5 MB max
+  }
+});
 
 // ✅ Telegram ENV
 const BOT_TOKEN = process.env.BOT_TOKEN || "";
@@ -33,7 +43,7 @@ app.get("/debug", (req, res) => {
   });
 });
 
-// ✅ Test Telegram
+// ✅ Test Telegram (simple text)
 app.get("/test-telegram", async (req, res) => {
   if (!BOT_TOKEN || !CHAT_ID) {
     return res.status(500).send("Missing BOT_TOKEN or CHAT_ID");
@@ -52,10 +62,16 @@ app.get("/test-telegram", async (req, res) => {
   }
 });
 
-// ✅ ORDER ROUTE (FIXED)
-app.post("/order", async (req, res) => {
+// ✅ ORDER ROUTE — sends message + screenshot
+// expects multipart/form-data with fields:
+//  - username
+//  - item
+//  - price
+//  - paymentScreenshot (file)
+app.post("/order", upload.single("paymentScreenshot"), async (req, res) => {
   try {
     const { username, item, price } = req.body;
+    const file = req.file;
 
     if (!username || !item || !price) {
       return res.status(400).json({
@@ -64,24 +80,47 @@ app.post("/order", async (req, res) => {
       });
     }
 
-    const message = `
+    if (!file) {
+      return res.status(400).json({
+        success: false,
+        message: "paymentScreenshot file is required"
+      });
+    }
+
+    // make sure username has @ only once
+    const formattedUsername = username.startsWith("@")
+      ? username
+      : `@${username}`;
+
+    const caption = `
 🛒 NEW ORDER
 
 Item: ${item}
 Price: ₹${price}
-Telegram: @${username}
-`;
+Telegram: ${formattedUsername}
+`.trim();
 
-    await axios.post(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
-      chat_id: CHAT_ID,
-      text: message
+    // build form-data for Telegram sendPhoto
+    const formData = new FormData();
+    formData.append("chat_id", CHAT_ID);
+    formData.append("caption", caption);
+    formData.append("photo", file.buffer, {
+      filename: file.originalname || "payment.jpg",
+      contentType: file.mimetype
     });
+
+    await axios.post(
+      `https://api.telegram.org/bot${BOT_TOKEN}/sendPhoto`,
+      formData,
+      {
+        headers: formData.getHeaders()
+      }
+    );
 
     res.json({
       success: true,
-      message: "Order sent to Telegram ✅"
+      message: "Order (with screenshot) sent to Telegram ✅"
     });
-
   } catch (err) {
     console.error(err.response?.data || err.message);
 
